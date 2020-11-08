@@ -1,5 +1,4 @@
 ﻿using EnvDTE;
-using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using System;
@@ -11,7 +10,7 @@ namespace CodeLocationContext
     /// <summary>
     /// Command handler
     /// </summary>
-    internal sealed class Command1
+    internal sealed class CopyCodeLocationCommand
     {
         /// <summary>
         /// Command ID.
@@ -29,12 +28,12 @@ namespace CodeLocationContext
         private readonly AsyncPackage package;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Command1"/> class.
+        /// Initializes a new instance of the <see cref="CopyCodeLocationCommand"/> class.
         /// Adds our command handlers for menu (commands must exist in the command table file)
         /// </summary>
         /// <param name="package">Owner package, not null.</param>
         /// <param name="commandService">Command service to add command to, not null.</param>
-        private Command1(AsyncPackage package, OleMenuCommandService commandService)
+        private CopyCodeLocationCommand(AsyncPackage package, OleMenuCommandService commandService)
         {
             this.package = package ?? throw new ArgumentNullException(nameof(package));
             commandService = commandService ?? throw new ArgumentNullException(nameof(commandService));
@@ -47,7 +46,7 @@ namespace CodeLocationContext
         /// <summary>
         /// Gets the instance of the command.
         /// </summary>
-        public static Command1 Instance
+        public static CopyCodeLocationCommand Instance
         {
             get;
             private set;
@@ -70,12 +69,12 @@ namespace CodeLocationContext
         /// <param name="package">Owner package, not null.</param>
         public static async Task InitializeAsync(AsyncPackage package)
         {
-            // Switch to the main thread - the call to AddCommand in Command1's constructor requires
+            // Switch to the main thread - the call to AddCommand in CopyCodeLocationCommand's constructor requires
             // the UI thread.
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync(package.DisposalToken);
 
             OleMenuCommandService commandService = await package.GetServiceAsync(typeof(IMenuCommandService)) as OleMenuCommandService;
-            Instance = new Command1(package, commandService);
+            Instance = new CopyCodeLocationCommand(package, commandService);
         }
 
         /// <summary>
@@ -91,41 +90,22 @@ namespace CodeLocationContext
 
             var dte = Package.GetGlobalService(typeof(SDTE)) as DTE;
 
-            DTE2 dte2 = Package.GetGlobalService(typeof(DTE)) as DTE2;
-
-            var solutionName = dte.Solution.FullName.Replace(".sln", "");
-
             if (dte.ActiveDocument == null)
                 return;
 
-            TextSelection ts = dte.ActiveWindow.Selection as EnvDTE.TextSelection;
+            TextSelection textSelection = dte.ActiveWindow.Selection as TextSelection;
 
-            var lineText = ts == null ? "" : $"Line:{ts.TopLine.ToString()}";
-
+            var lineText = textSelection == null ? "" : $"Line:{textSelection.TopLine.ToString()}";
 
             var activeDocumentNameAndPath = dte.ActiveDocument.FullName;
 
             var solutionFolderPath = System.IO.Path.GetDirectoryName(dte.Solution.FullName);
 
-            var indexOfSolutionName = activeDocumentNameAndPath.IndexOf(solutionName);
+            var relativePath = activeDocumentNameAndPath.Replace(solutionFolderPath, "");
 
-            var noExtras = activeDocumentNameAndPath.Replace(solutionFolderPath, "");
-
-
-            string message = $"{noExtras} {lineText}";
-            string title = "Command1";
+            string message = $"{relativePath} {lineText}";
 
             System.Windows.Forms.Clipboard.SetText(message);
-
-
-            // Show a message box to prove we were here
-            VsShellUtilities.ShowMessageBox(
-                this.package,
-                message,
-                title,
-                OLEMSGICON.OLEMSGICON_INFO,
-                OLEMSGBUTTON.OLEMSGBUTTON_OK,
-                OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
         }
     }
 }
